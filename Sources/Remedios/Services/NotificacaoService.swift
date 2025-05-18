@@ -4,28 +4,10 @@ import UserNotifications
 
 @MainActor
 class NotificacaoService {
-    func receberNotificacao(userInfo: [AnyHashable: Any]) {
-        if let medicamentoID = userInfo["medicamentoID"] as? String,
-            let id = UUID(uuidString: medicamentoID)
-        {
+    let persistenciaService: PersistenciaService
 
-            // Obter o notificationID
-            if let notificacaoID = userInfo["notificationID"] as? String {
-                Task {
-                    await processarNotificacaoRecebida(id: id, notificacaoID: notificacaoID)
-                }
-            }
-        }
-    }
-
-    @MainActor
-    func processarNotificacaoRecebida(id: UUID, notificacaoID: String) {
-        // Delegamos para o ViewModel que já tem esta lógica
-        NotificationCenter.default.post(
-            name: Notification.Name("NotificacaoRecebida"),
-            object: nil,
-            userInfo: ["medicamentoID": id.uuidString, "notificacaoID": notificacaoID]
-        )
+    init(persistenciaService: PersistenciaService) {
+        self.persistenciaService = persistenciaService
     }
 
     func solicitarPermissao() async -> Bool {
@@ -33,19 +15,31 @@ class NotificacaoService {
             UNUserNotificationCenter.current().requestAuthorization(options: [
                 .alert, .badge, .sound,
             ]) { concedida, erro in
+                if let erro = erro {
+                    print(
+                        "Erro ao solicitar permissão para notificações: \(erro.localizedDescription)"
+                    )
+                }
                 continuation.resume(returning: concedida)
             }
         }
     }
 
-    // In NotificacaoService.swift, modify the agendarNotificacao method
+    // Função para encontrar um medicamento pelo ID
+    func encontrarMedicamento(id: UUID) async -> Medicamento? {
+        let medicamentos = persistenciaService.carregarMedicamentos()
+        return medicamentos.first(where: { $0.id == id })
+    }
+
+    // Agendar uma notificação
     func agendarNotificacao(titulo: String, corpo: String, horario: Horario, medicamentoID: UUID) {
         let conteudo = UNMutableNotificationContent()
         conteudo.title = titulo
         conteudo.body = corpo
         conteudo.sound = .default
         conteudo.categoryIdentifier = "MEDICAMENTO"
-        // Importante: adicionar AMBOS os IDs nos userInfo
+
+        // Adicionar os IDs nos userInfo
         conteudo.userInfo = [
             "medicamentoID": medicamentoID.uuidString,
             "notificationID": horario.notificacaoID,
@@ -59,37 +53,13 @@ class NotificacaoService {
             trigger: trigger
         )
 
-        // Registrar ações para as notificações
-        let tomarAction = UNNotificationAction(
-            identifier: "TOMAR_ACTION",
-            title: "Tomei",
-            options: .foreground
-        )
-
-        let adiarAction = UNNotificationAction(
-            identifier: "ADIAR_ACTION",
-            title: "Adiar",
-            options: .foreground
-        )
-
-        let ignorarAction = UNNotificationAction(
-            identifier: "IGNORAR_ACTION",
-            title: "Ignorar",
-            options: .foreground
-        )
-
-        let category = UNNotificationCategory(
-            identifier: "MEDICAMENTO",
-            actions: [tomarAction, adiarAction, ignorarAction],
-            intentIdentifiers: [],
-            options: []
-        )
-
-        UNUserNotificationCenter.current().setNotificationCategories([category])
-
         UNUserNotificationCenter.current().add(request) { erro in
             if let erro = erro {
                 print("Erro ao agendar notificação: \(erro.localizedDescription)")
+            } else {
+                print(
+                    "Notificação agendada com sucesso para o medicamento \(medicamentoID.uuidString)"
+                )
             }
         }
     }
@@ -111,6 +81,7 @@ class NotificacaoService {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
             identificador
         ])
+        print("Notificação cancelada: \(identificador)")
     }
 
     private func criarTrigger(para horario: Horario) -> UNNotificationTrigger {

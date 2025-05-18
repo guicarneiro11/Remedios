@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var medicamentoViewModel: MedicamentoViewModel
-    @EnvironmentObject var notificacaoViewModel: NotificacaoViewModel
     @State private var mostrarConfiguracaoMedicamento = false
     @State private var tabSelecionada = 0
 
@@ -82,38 +81,19 @@ struct HomeView: View {
                 )
             }
 
-            // Tela de confirmação de medicamento
-            if notificacaoViewModel.mostrarTelaConfirmacao {
-                Color.black.opacity(0.7)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-
-                ConfirmacaoMedicamentoView()
-                    .transition(.move(edge: .bottom))
-                    .zIndex(100)  // Garantir que fique acima de tudo
-            }
+            // Nosso observer de notificações - sempre visível
+            NotificacaoObserver()
         }
         .sheet(isPresented: $mostrarConfiguracaoMedicamento) {
             ConfiguracaoMedicamentoView(viewModel: medicamentoViewModel)
         }
-        .onChange(of: notificacaoViewModel.mostrarTelaConfirmacao) { novoValor in
-            print("mostrarTelaConfirmacao mudou para: \(novoValor)")
-
-            if novoValor {
-                // Garantir que a notificação não será sobreposta por outras views
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // Verificar se ainda deve mostrar (pode ter mudado durante o delay)
-                    if notificacaoViewModel.mostrarTelaConfirmacao {
-                        print("Forçando exibição da tela de confirmação")
-                        // Nada aqui - apenas para forçar a atualização da view
-                    }
+        .onAppear {
+            // Solicitar permissão para notificações no primeiro lançamento
+            Task {
+                NotificacaoManager.shared.solicitarPermissao { granted in
+                    print("Permissão para notificações: \(granted ? "concedida" : "negada")")
                 }
             }
-        }
-        .onAppear {
-            // Verificar notificações pendentes ao abrir o app
-            print("HomeView apareceu - verificando notificações")
-            notificacaoViewModel.verificarNotificacoes()
         }
     }
 }

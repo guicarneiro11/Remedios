@@ -1,5 +1,5 @@
-import Foundation
 import Combine
+import Foundation
 import SwiftUI
 
 @MainActor
@@ -16,33 +16,33 @@ class MedicamentoViewModel: ObservableObject {
     @Published var etapaConfiguracao: Int = 1
     @Published var mostrarErro: Bool = false
     @Published var mensagemErro: String = ""
-    
+
     private let persistenciaService: PersistenciaService
     private let notificacaoService: NotificacaoService
     private var cancellables = Set<AnyCancellable>()
-    
+
     init(persistenciaService: PersistenciaService, notificacaoService: NotificacaoService) {
         self.persistenciaService = persistenciaService
         self.notificacaoService = notificacaoService
-        
+
         carregarMedicamentos()
     }
-    
+
     func avancarEtapa() {
         if validarEtapaAtual() {
             etapaConfiguracao += 1
         }
     }
-    
+
     func voltarEtapa() {
         if etapaConfiguracao > 1 {
             etapaConfiguracao -= 1
         }
     }
-    
+
     func salvarMedicamento() {
         guard validarTodasEtapas() else { return }
-        
+
         let novoMedicamento = Medicamento(
             nome: nome,
             tipo: tipo,
@@ -59,7 +59,7 @@ class MedicamentoViewModel: ObservableObject {
 
         resetarFormulario()
     }
-    
+
     func editarMedicamento(_ medicamento: Medicamento) {
         medicamentoSelecionado = medicamento
         nome = medicamento.nome
@@ -71,36 +71,35 @@ class MedicamentoViewModel: ObservableObject {
     }
 
     func atualizarMedicamento(_ medicamento: Medicamento) {
-    if let index = medicamentos.firstIndex(where: { $0.id == medicamento.id }) {
-        for horario in medicamentos[index].horarios {
-            notificacaoService.cancelarNotificacao(identificador: horario.notificacaoID)
-        }
+        if let index = medicamentos.firstIndex(where: { $0.id == medicamento.id }) {
+            for horario in medicamentos[index].horarios {
+                notificacaoService.cancelarNotificacao(identificador: horario.notificacaoID)
+            }
 
-        medicamentos[index] = medicamento
+            medicamentos[index] = medicamento
 
-        persistenciaService.salvarMedicamentos(medicamentos)
+            persistenciaService.salvarMedicamentos(medicamentos)
 
-        for horario in medicamento.horarios {
-            notificacaoService.agendarNotificacao(
-                titulo: medicamento.nomeTitulo ?? "Hora de tomar seu medicamento",
-                corpo: "Está na hora de tomar \(medicamento.nome)",
-                horario: horario,
-                medicamentoID: medicamento.id
-            )
+            for horario in medicamento.horarios {
+                notificacaoService.agendarNotificacao(
+                    titulo: medicamento.nomeTitulo ?? "Hora de tomar seu medicamento",
+                    corpo: "Está na hora de tomar \(medicamento.nome)",
+                    horario: horario,
+                    medicamentoID: medicamento.id
+                )
+            }
         }
     }
-}
-    
+
     func excluirMedicamento(_ medicamento: Medicamento) {
         for horario in medicamento.horarios {
-            notificacaoService.cancelarNotificacao(identificador: horario.notificacaoID)
+            NotificacaoManager.shared.cancelarNotificacao(identificador: horario.notificacaoID)
         }
 
         medicamentos.removeAll { $0.id == medicamento.id }
         persistenciaService.salvarMedicamentos(medicamentos)
     }
 
-    
     private func validarEtapaAtual() -> Bool {
         switch etapaConfiguracao {
         case 1:
@@ -120,11 +119,11 @@ class MedicamentoViewModel: ObservableObject {
         default:
             break
         }
-        
+
         mostrarErro = false
         return true
     }
-    
+
     private func validarTodasEtapas() -> Bool {
         if nome.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             mostrarErro = true
@@ -132,18 +131,18 @@ class MedicamentoViewModel: ObservableObject {
             etapaConfiguracao = 1
             return false
         }
-        
+
         if horarios.isEmpty {
             mostrarErro = true
             mensagemErro = "Por favor, adicione pelo menos um horário."
             etapaConfiguracao = 3
             return false
         }
-        
+
         mostrarErro = false
         return true
     }
-    
+
     private func resetarFormulario() {
         nome = ""
         tipo = .comprimido
@@ -153,14 +152,14 @@ class MedicamentoViewModel: ObservableObject {
         etapaConfiguracao = 1
         medicamentoSelecionado = nil
     }
-    
+
     private func carregarMedicamentos() {
         medicamentos = persistenciaService.carregarMedicamentos()
     }
-    
+
     private func agendarNotificacoes(para medicamento: Medicamento) {
         for horario in medicamento.horarios {
-            notificacaoService.agendarNotificacao(
+            NotificacaoManager.shared.agendarNotificacao(
                 titulo: medicamento.nomeTitulo ?? "Hora de tomar seu medicamento",
                 corpo: "Está na hora de tomar \(medicamento.nome)",
                 horario: horario,

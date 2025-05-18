@@ -1,30 +1,65 @@
+import Combine
 import SwiftUI
 
-struct ConfirmacaoMedicamentoView: View {
-    @EnvironmentObject var notificacaoViewModel: NotificacaoViewModel
-    @State private var animationAmount: Double = 1.0
+struct NotificacaoObserver: View {
+    @State private var mostrarNotificacao = false
+    @State private var cancellable: AnyCancellable?
+    @State private var medicamentoAtual: Medicamento?
+    @State private var horarioAtual: Horario?
+
+    var body: some View {
+        ZStack {
+            // View vazia que apenas observa as notificações
+            EmptyView()
+
+            // Mostrar tela de confirmação quando necessário
+            if mostrarNotificacao, let medicamento = medicamentoAtual {
+                Color.black.opacity(0.7)
+                    .ignoresSafeArea()
+
+                ConfirmacaoView(medicamento: medicamento)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(100)
+            }
+        }
+        .onAppear {
+            // Começa a observar mudanças no NotificacaoManager
+            setupObserver()
+        }
+    }
+
+    private func setupObserver() {
+        // Observar as mudanças no NotificacaoManager.shared.mostrarTelaConfirmacao
+        cancellable = NotificacaoManager.shared.$mostrarTelaConfirmacao
+            .combineLatest(
+                NotificacaoManager.shared.$medicamentoAtual, NotificacaoManager.shared.$horarioAtual
+            )
+            .receive(on: DispatchQueue.main)
+            .sink { mostrar, medicamento, horario in
+                self.mostrarNotificacao = mostrar
+                self.medicamentoAtual = medicamento
+                self.horarioAtual = horario
+
+                print("NotificacaoObserver: mostrarNotificacao=\(mostrar)")
+            }
+    }
+}
+
+struct ConfirmacaoView: View {
+    let medicamento: Medicamento
 
     var body: some View {
         VStack(spacing: 24) {
+            // Cabeçalho
             Image(systemName: "pill.fill")
                 .font(.system(size: 80))
                 .foregroundColor(.white)
-                .scaleEffect(animationAmount)
+                .scaleEffect(1.2)
                 .animation(
                     Animation.easeInOut(duration: 1.5)
                         .repeatForever(autoreverses: true),
-                    value: animationAmount
+                    value: 1.2
                 )
-                .onAppear {
-                    animationAmount = 1.2
-                    print("ConfirmacaoMedicamentoView apareceu")
-                    // Garantir que a tela não vai embora sozinha
-                    UIApplication.shared.isIdleTimerDisabled = true
-                }
-                .onDisappear {
-                    print("ConfirmacaoMedicamentoView desapareceu")
-                    UIApplication.shared.isIdleTimerDisabled = false
-                }
 
             Text("Hora do Medicamento!")
                 .font(.title)
@@ -32,36 +67,35 @@ struct ConfirmacaoMedicamentoView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
 
-            if let medicamento = notificacaoViewModel.medicamentoAtual {
-                VStack(spacing: 12) {
-                    Text(medicamento.nome)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
+            // Detalhes do medicamento
+            VStack(spacing: 12) {
+                Text(medicamento.nome)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
 
-                    Text("Tipo: \(medicamento.tipo.rawValue)")
+                Text("Tipo: \(medicamento.tipo.rawValue)")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.7))
+
+                if let nota = medicamento.notas, !nota.isEmpty {
+                    Text("Nota: \(nota)")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.7))
-
-                    if let nota = medicamento.notas, !nota.isEmpty {
-                        Text("Nota: \(nota)")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
-                .padding()
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(16)
             }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(16)
 
             Spacer()
 
+            // Botões de ação
             VStack(spacing: 16) {
                 Button(action: {
-                    print("Botão Confirmar pressionado")
-                    notificacaoViewModel.confirmarMedicamentoTomado()
+                    NotificacaoManager.shared.confirmarMedicamentoTomado()
                 }) {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
@@ -78,8 +112,7 @@ struct ConfirmacaoMedicamentoView: View {
                 }
 
                 Button(action: {
-                    print("Botão Adiar pressionado")
-                    notificacaoViewModel.adiarMedicamento()
+                    NotificacaoManager.shared.adiarMedicamento()
                 }) {
                     HStack {
                         Image(systemName: "clock.fill")
@@ -100,8 +133,7 @@ struct ConfirmacaoMedicamentoView: View {
                 }
 
                 Button(action: {
-                    print("Botão Ignorar pressionado")
-                    notificacaoViewModel.ignorarMedicamento()
+                    NotificacaoManager.shared.ignorarMedicamento()
                 }) {
                     HStack {
                         Image(systemName: "xmark.circle.fill")
@@ -131,5 +163,13 @@ struct ConfirmacaoMedicamentoView: View {
             Color.black.opacity(0.9)
                 .edgesIgnoringSafeArea(.all)
         )
+        .onAppear {
+            // Impedir que a tela se desligue
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        .onDisappear {
+            // Permitir que a tela se desligue novamente
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 }

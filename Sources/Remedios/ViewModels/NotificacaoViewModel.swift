@@ -12,62 +12,16 @@ class NotificacaoViewModel: ObservableObject {
 
     private var timer: Timer?
     private var vibrationCount = 0
-    private let maxVibrationCount = 30
+    private let maxVibrationCount = 30  // Máximo de vibrações antes de parar automaticamente
 
     let notificacaoService: NotificacaoService
     private let persistenciaService: PersistenciaService
-    private var cancellables = Set<AnyCancellable>()
 
+    // Constructor com injeção de dependências
     init(notificacaoService: NotificacaoService, persistenciaService: PersistenciaService) {
         self.notificacaoService = notificacaoService
         self.persistenciaService = persistenciaService
-
-        setupNotificationObservers()
-    }
-
-    private func setupNotificationObservers() {
-        // Observador para notificações recebidas
-        NotificationCenter.default.publisher(for: Notification.Name("NotificacaoRecebida"))
-            .sink { [weak self] notification in
-                guard let self = self,
-                    let userInfo = notification.userInfo,
-                    let medicamentoID = userInfo["medicamentoID"] as? String,
-                    let notificacaoID = userInfo["notificacaoID"] as? String,
-                    let id = UUID(uuidString: medicamentoID)
-                else {
-                    return
-                }
-
-                print(
-                    "NotificacaoViewModel: Notificação recebida para medicamento \(medicamentoID)")
-                self.processarNotificacao(id: id, notificacaoID: notificacaoID)
-            }
-            .store(in: &cancellables)
-
-        // Observadores para ações automáticas
-        NotificationCenter.default.publisher(for: Notification.Name("AutoConfirmarMedicamento"))
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                print("Auto-confirmando medicamento")
-                self.confirmarMedicamentoTomado()
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: Notification.Name("AutoAdiarMedicamento"))
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                print("Auto-adiando medicamento")
-                self.adiarMedicamento()
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: Notification.Name("AutoIgnorarMedicamento"))
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                print("Auto-ignorando medicamento")
-                self.ignorarMedicamento()
-            }
-            .store(in: &cancellables)
+        print("NotificacaoViewModel inicializado")
     }
 
     func verificarNotificacoes() {
@@ -80,23 +34,21 @@ class NotificacaoViewModel: ObservableObject {
                     print("Nenhuma notificação entregue encontrada")
                 } else {
                     print("Notificações entregues: \(notificacoes.count)")
-                    for notificacao in notificacoes {
-                        print("Notificação: \(notificacao.request.identifier)")
-                        print("UserInfo: \(notificacao.request.content.userInfo)")
-
-                        if let medicamentoID = notificacao.request.content.userInfo["medicamentoID"]
+                    // Processar apenas a notificação mais recente
+                    if let notificacao = notificacoes.last,
+                        let medicamentoID = notificacao.request.content.userInfo["medicamentoID"]
                             as? String,
-                            let notificacaoID = notificacao.request.content.userInfo[
-                                "notificationID"] as? String,
-                            let id = UUID(uuidString: medicamentoID)
-                        {
-                            print("Processando notificação pendente: \(medicamentoID)")
-                            self.processarNotificacao(id: id, notificacaoID: notificacaoID)
+                        let notificacaoID = notificacao.request.content.userInfo["notificationID"]
+                            as? String,
+                        let id = UUID(uuidString: medicamentoID)
+                    {
 
-                            // Remover a notificação após processá-la
-                            UNUserNotificationCenter.current().removeDeliveredNotifications(
-                                withIdentifiers: [notificacao.request.identifier])
-                        }
+                        print("Processando notificação pendente: \(medicamentoID)")
+                        await self.processarNotificacao(id: id, notificacaoID: notificacaoID)
+
+                        // Remover a notificação após processá-la
+                        UNUserNotificationCenter.current().removeDeliveredNotifications(
+                            withIdentifiers: [notificacao.request.identifier])
                     }
                 }
             }
@@ -106,7 +58,7 @@ class NotificacaoViewModel: ObservableObject {
         notificacaoService.imprimirTodasNotificacoes()
     }
 
-    func processarNotificacao(id: UUID, notificacaoID: String) {
+    func processarNotificacao(id: UUID, notificacaoID: String) async {
         print(
             "Processando notificação para medicamento \(id.uuidString), notificação \(notificacaoID)"
         )
@@ -121,21 +73,18 @@ class NotificacaoViewModel: ObservableObject {
                 print("Horário encontrado: \(horario.hora.formatarHora())")
 
                 // Definir as propriedades que controlam a exibição da tela de confirmação
-                Task { @MainActor in
-                    self.medicamentoAtual = medicamento
-                    self.horarioAtual = horario
-                    self.dataHorario = Date()
+                self.medicamentoAtual = medicamento
+                self.horarioAtual = horario
+                self.dataHorario = Date()
 
-                    // Importante: definir mostrarTelaConfirmacao como true para exibir a tela
-                    print("Exibindo tela de confirmação")
-                    self.mostrarTelaConfirmacao = true
+                // Mostrar a tela de confirmação
+                print("Exibindo tela de confirmação")
+                self.mostrarTelaConfirmacao = true
 
-                    // Iniciar vibração contínua
-                    print("Iniciando vibração")
-                    self.iniciarVibracaoContinua()
-                }
+                // Iniciar vibração contínua
+                iniciarVibracaoContinua()
             } else {
-                print("Horário não encontrado para notificaçãoID: \(notificacaoID)")
+                print("Horário não encontrado para notificacaoID: \(notificacaoID)")
             }
         } else {
             print("Medicamento não encontrado com ID: \(id.uuidString)")
@@ -165,10 +114,8 @@ class NotificacaoViewModel: ObservableObject {
             "Registro adicionado ao histórico: \(registro.nomeMedicamento) - \(registro.status.rawValue)"
         )
 
-        Task { @MainActor in
-            self.pararVibracaoContinua()
-            self.resetarEstado()
-        }
+        pararVibracaoContinua()
+        resetarEstado()
     }
 
     func adiarMedicamento() {
@@ -192,9 +139,8 @@ class NotificacaoViewModel: ObservableObject {
         persistenciaService.adicionarRegistro(registro)
         print("Registro adicionado ao histórico: \(registro.nomeMedicamento) - Adiado")
 
-        Task { @MainActor in
-            self.pararVibracaoContinua()
-        }
+        pararVibracaoContinua()
+        resetarEstado()
 
         // Agendar nova notificação para 3 minutos depois
         let tempoAdiamento = 3  // minutos
@@ -228,10 +174,6 @@ class NotificacaoViewModel: ObservableObject {
                 print("Lembrete agendado para \(dataLembrete.formatarHora()) com ID \(lembreteID)")
             }
         }
-
-        Task { @MainActor in
-            self.resetarEstado()
-        }
     }
 
     func ignorarMedicamento() {
@@ -255,13 +197,11 @@ class NotificacaoViewModel: ObservableObject {
         persistenciaService.adicionarRegistro(registro)
         print("Registro adicionado ao histórico: \(registro.nomeMedicamento) - Ignorado")
 
-        Task { @MainActor in
-            self.pararVibracaoContinua()
-            self.resetarEstado()
-        }
+        pararVibracaoContinua()
+        resetarEstado()
     }
 
-    private func resetarEstado() {
+    func resetarEstado() {
         print("Resetando estado")
         medicamentoAtual = nil
         horarioAtual = nil
@@ -276,6 +216,8 @@ class NotificacaoViewModel: ObservableObject {
         // Resetar contador
         vibrationCount = 0
 
+        print("INICIANDO VIBRAÇÃO CONTÍNUA")
+
         // Vibrar imediatamente
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         print("Vibração inicial")
@@ -284,8 +226,14 @@ class NotificacaoViewModel: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
 
-            // Usamos Task para voltar ao MainActor e acessar propriedades isoladas
-            Task { @MainActor in
+            // Usamos DispatchQueue para garantir que estamos na thread principal
+            DispatchQueue.main.async {
+                // Verificar se ainda devemos mostrar a tela de confirmação
+                if !self.mostrarTelaConfirmacao {
+                    self.pararVibracaoContinua()
+                    return
+                }
+
                 // Verificar se atingimos o limite
                 if self.vibrationCount < self.maxVibrationCount {
                     AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
@@ -293,19 +241,18 @@ class NotificacaoViewModel: ObservableObject {
                     print("Vibração \(self.vibrationCount) de \(self.maxVibrationCount)")
                 } else {
                     print("Limite de vibrações atingido")
-                    await self.pararVibracaoContinua()
+                    self.pararVibracaoContinua()
                 }
             }
         }
 
-        // Registrar o timer no RunLoop principal para garantir que seja executado
         if let timer = timer {
             RunLoop.main.add(timer, forMode: .common)
             print("Timer de vibração iniciado")
         }
     }
 
-    @MainActor func pararVibracaoContinua() {
+    func pararVibracaoContinua() {
         if timer != nil {
             print("Parando vibração contínua")
             timer?.invalidate()
