@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ListaMedicamentosView: View {
     @EnvironmentObject var medicamentoViewModel: MedicamentoViewModel
+    @EnvironmentObject var notificacaoViewModel: NotificacaoViewModel
     @State private var medicamentoSelecionado: Medicamento?
     @State private var mostrarDetalhesMedicamento = false
     
@@ -30,16 +31,18 @@ struct ListaMedicamentosView: View {
                     VStack(spacing: 16) {
                         ForEach(medicamentoViewModel.medicamentos) { medicamento in
                             MedicamentoCardView(medicamento: medicamento) {
-                                medicamentoSelecionado = medicamento
-                                mostrarDetalhesMedicamento = true
-                            }
+                            notificacaoViewModel.mostrarTelaConfirmacao = false
+    
+                            medicamentoSelecionado = medicamento
+                            mostrarDetalhesMedicamento = true
+                            }       
                         }
                     }
                     .padding(.horizontal)
                 }
             }
         }
-        .sheet(isPresented: $mostrarDetalhesMedicamento) {
+        .fullScreenCover(isPresented: $mostrarDetalhesMedicamento) {
             if let medicamento = medicamentoSelecionado {
                 DetalhesMedicamentoView(medicamento: medicamento)
             }
