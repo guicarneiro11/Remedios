@@ -184,13 +184,7 @@ struct DetalhesMedicamentoView: View {
             )
         }
         .sheet(isPresented: $mostrarEdicao) {
-            NavigationView {
-                Text("Tela de edição - A ser implementada")
-                    .navigationTitle("Editar medicamento")
-                    .navigationBarItems(trailing: Button("Fechar") {
-                        mostrarEdicao = false
-                    })
-            }
+            EdicaoMedicamentoView(medicamento: medicamento)
         }
         .onAppear {
             historicoViewModel.filtroMedicamento = medicamento.id
@@ -274,3 +268,4 @@ struct HorarioDetalheView: View {
         return dias[dia - 1]
     }
 }
+

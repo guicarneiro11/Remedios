@@ -44,7 +44,6 @@ enum FrequenciaMedicamento: String, Codable {
     case esporadico = "Uso esporádico"
 }
 
-// Struct para substituir a tupla que estava causando erro de Codable
 struct CicloMedicamento: Codable, Equatable {
     var ativo: Int
     var descanso: Int
@@ -54,7 +53,7 @@ struct Horario: Identifiable, Codable {
     let id = UUID()
     var hora: Date
     var frequencia: FrequenciaMedicamento
-    var diasSemana: [Int]? // 1 = Domingo, 2 = Segunda, etc.
+    var diasSemana: [Int]?
     var intervaloDias: Int?
     var ciclosDias: CicloMedicamento?
     
@@ -69,7 +68,7 @@ struct Medicamento: Identifiable, Codable {
     var tipo: TipoMedicamento
     var horarios: [Horario]
     var notas: String?
-    var nomeTitulo: String? // Nome personalizado para notificação
+    var nomeTitulo: String?
     var dataCriacao: Date
     var ativo: Bool = true
 }

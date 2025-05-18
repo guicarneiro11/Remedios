@@ -69,6 +69,27 @@ class MedicamentoViewModel: ObservableObject {
         nomeTitulo = medicamento.nomeTitulo ?? ""
         etapaConfiguracao = 1
     }
+
+    func atualizarMedicamento(_ medicamento: Medicamento) {
+    if let index = medicamentos.firstIndex(where: { $0.id == medicamento.id }) {
+        for horario in medicamentos[index].horarios {
+            notificacaoService.cancelarNotificacao(identificador: horario.notificacaoID)
+        }
+
+        medicamentos[index] = medicamento
+
+        persistenciaService.salvarMedicamentos(medicamentos)
+
+        for horario in medicamento.horarios {
+            notificacaoService.agendarNotificacao(
+                titulo: medicamento.nomeTitulo ?? "Hora de tomar seu medicamento",
+                corpo: "Está na hora de tomar \(medicamento.nome)",
+                horario: horario,
+                medicamentoID: medicamento.id
+            )
+        }
+    }
+}
     
     func excluirMedicamento(_ medicamento: Medicamento) {
         for horario in medicamento.horarios {

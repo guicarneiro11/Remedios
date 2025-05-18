@@ -3,12 +3,11 @@ import Combine
 
 @main
 struct RemediosApp: App {
-    // Inicialização dos ViewModels
     @StateObject private var medicamentoViewModel: MedicamentoViewModel
     @StateObject private var notificacaoViewModel: NotificacaoViewModel
+    @UIApplicationDelegateAdaptor private var appDelegate: ApplicationDelegate
     
     init() {
-        // Criar os serviços e ViewModels
         let persistenciaService = PersistenciaService()
         let notificacaoService = NotificacaoService()
         

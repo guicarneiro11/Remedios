@@ -4,6 +4,28 @@ import SwiftUI
 
 @MainActor
 class NotificacaoService {
+    func receberNotificacao(userInfo: [AnyHashable: Any]) {
+    if let medicamentoID = userInfo["medicamentoID"] as? String,
+        let id = UUID(uuidString: medicamentoID) {
+        
+        // Obter o notificationID
+            if let notificacaoID = userInfo["notificationID"] as? String {
+                Task {
+                    await processarNotificacaoRecebida(id: id, notificacaoID: notificacaoID)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func processarNotificacaoRecebida(id: UUID, notificacaoID: String) {
+    // Delegamos para o ViewModel que já tem esta lógica
+        NotificationCenter.default.post(
+            name: Notification.Name("NotificacaoRecebida"),
+            object: nil,
+            userInfo: ["medicamentoID": id.uuidString, "notificacaoID": notificacaoID]
+        )
+    }
     
     func solicitarPermissao() async -> Bool {
         return await withCheckedContinuation { continuation in
@@ -19,8 +41,7 @@ class NotificacaoService {
         conteudo.body = corpo
         conteudo.sound = .default
         conteudo.userInfo = ["medicamentoID": medicamentoID.uuidString]
-        
-        // Configurar o trigger com base na frequência
+
         let trigger = criarTrigger(para: horario)
         
         let request = UNNotificationRequest(
@@ -50,26 +71,19 @@ class NotificacaoService {
             
         case .diasEspecificos:
             guard let diasSemana = horario.diasSemana, !diasSemana.isEmpty else {
-                // Fallback para diário se não houver dias específicos
                 return UNCalendarNotificationTrigger(dateMatching: componentes, repeats: true)
             }
-            
-            // Criar uma notificação para cada dia da semana selecionado
-            // Note: Isto é simplificado, na prática você criaria múltiplas notificações
+
             componentes.weekday = diasSemana[0]
             return UNCalendarNotificationTrigger(dateMatching: componentes, repeats: true)
             
         case .intervalos:
-            // Para intervalos, precisaríamos usar outro método como notificações em lote
-            // Simplificado para este exemplo
             let intervalo = horario.intervaloDias ?? 1
             let proximaData = Calendar.current.date(byAdding: .day, value: intervalo, to: Date())!
             componentes = calendario.dateComponents([.year, .month, .day, .hour, .minute], from: proximaData)
             return UNCalendarNotificationTrigger(dateMatching: componentes, repeats: false)
             
         case .ciclos, .esporadico:
-            // Para ciclos e uso esporádico, precisaríamos de lógica mais complexa
-            // Simplificado para este exemplo
             return UNCalendarNotificationTrigger(dateMatching: componentes, repeats: true)
         }
     }
