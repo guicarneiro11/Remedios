@@ -1,5 +1,4 @@
 // swift-tools-version: 6.0
-
 import PackageDescription
 
 let package = Package(
@@ -9,16 +8,17 @@ let package = Package(
         .macOS(.v14),
     ],
     products: [
-        // An xtool project should contain exactly one library product,
-        // representing the main app.
         .library(
             name: "Remedios",
             targets: ["Remedios"]
-        ),
+        )
     ],
     targets: [
         .target(
-            name: "Remedios"
-        ),
+            name: "Remedios",
+            resources: [
+                .process("Assets.xcassets")
+            ]
+        )
     ]
 )
