@@ -9,7 +9,7 @@ struct EdicaoMedicamentoView: View {
     @State private var notas: String
     @State private var nomeTitulo: String
     private let medicamentoID: UUID
-    
+
     init(medicamento: Medicamento) {
         self.medicamentoID = medicamento.id
         _nome = State(initialValue: medicamento.nome)
@@ -18,19 +18,17 @@ struct EdicaoMedicamentoView: View {
         _notas = State(initialValue: medicamento.notas ?? "")
         _nomeTitulo = State(initialValue: medicamento.nomeTitulo ?? "")
     }
-    
+
     var body: some View {
         ZStack {
-            // Fundo gradiente
             LinearGradient(
                 gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.purple.opacity(0.8)]),
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
-                // Cabeçalho
                 HStack {
                     Button(action: {
                         presentationMode.wrappedValue.dismiss()
@@ -39,16 +37,16 @@ struct EdicaoMedicamentoView: View {
                             .font(.title2)
                             .foregroundColor(.white.opacity(0.7))
                     }
-                    
+
                     Spacer()
-                    
+
                     Text("Editar Medicamento")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
-                    
+
                     Spacer()
-                    
+
                     Button(action: {
                         salvarAlteracoes()
                     }) {
@@ -58,15 +56,14 @@ struct EdicaoMedicamentoView: View {
                     }
                 }
                 .padding()
-                
+
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Nome do medicamento
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Nome do medicamento")
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            
+
                             TextField("", text: $nome)
                                 .padding()
                                 .background(Color.white.opacity(0.1))
@@ -78,13 +75,12 @@ struct EdicaoMedicamentoView: View {
                                 )
                         }
                         .padding(.horizontal)
-                        
-                        // Tipo do medicamento
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Tipo do medicamento")
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            
+
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     ForEach(TipoMedicamento.allCases) { tipoItem in
@@ -99,21 +95,20 @@ struct EdicaoMedicamentoView: View {
                             }
                         }
                         .padding(.horizontal)
-                        
-                        // Horários
+
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Horários")
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .padding(.horizontal)
-                            
+
                             ForEach(horarios) { horario in
                                 HorarioEditItem(horario: horario) {
                                     self.horarios.removeAll { $0.id == horario.id }
                                 }
                                 .padding(.horizontal)
                             }
-                            
+
                             Button(action: {
                                 adicionarNovoHorario()
                             }) {
@@ -129,18 +124,17 @@ struct EdicaoMedicamentoView: View {
                             }
                             .padding(.horizontal)
                         }
-                        
-                        // Detalhes adicionais
+
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Detalhes adicionais")
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            
+
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Nome para notificação (opcional)")
                                     .font(.subheadline)
                                     .foregroundColor(.white.opacity(0.8))
-                                
+
                                 TextField("", text: $nomeTitulo)
                                     .padding()
                                     .background(Color.white.opacity(0.1))
@@ -151,12 +145,12 @@ struct EdicaoMedicamentoView: View {
                                             .stroke(Color.white.opacity(0.3), lineWidth: 1)
                                     )
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Notas (opcional)")
                                     .font(.subheadline)
                                     .foregroundColor(.white.opacity(0.8))
-                                
+
                                 TextEditor(text: $notas)
                                     .frame(minHeight: 100)
                                     .padding()
@@ -183,38 +177,35 @@ struct EdicaoMedicamentoView: View {
             )
         }
     }
-    
+
     private func salvarAlteracoes() {
-        // Validar campos
         if nome.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             medicamentoViewModel.mostrarErro = true
             medicamentoViewModel.mensagemErro = "O nome do medicamento não pode ficar em branco."
             return
         }
-        
+
         if horarios.isEmpty {
             medicamentoViewModel.mostrarErro = true
             medicamentoViewModel.mensagemErro = "Adicione pelo menos um horário."
             return
         }
-        
-        // Encontrar o medicamento atual
-        if var medicamento = medicamentoViewModel.medicamentos.first(where: { $0.id == medicamentoID }) {
-            // Atualizar propriedades
+
+        if var medicamento = medicamentoViewModel.medicamentos.first(where: {
+            $0.id == medicamentoID
+        }) {
             medicamento.nome = nome
             medicamento.tipo = tipo
             medicamento.horarios = horarios
             medicamento.notas = notas.isEmpty ? nil : notas
             medicamento.nomeTitulo = nomeTitulo.isEmpty ? nil : nomeTitulo
-            
-            // Salvar alterações
+
             medicamentoViewModel.atualizarMedicamento(medicamento)
             presentationMode.wrappedValue.dismiss()
         }
     }
-    
+
     private func adicionarNovoHorario() {
-        // Adicionar um novo horário padrão
         let novoHorario = Horario(
             hora: Date(),
             frequencia: .diaria,
@@ -230,13 +221,13 @@ struct TipoMedicamentoButton: View {
     let tipo: TipoMedicamento
     let selecionado: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: iconeTipo(tipo))
                     .font(.title2)
-                
+
                 Text(tipo.rawValue)
                     .font(.caption)
             }
@@ -251,7 +242,7 @@ struct TipoMedicamentoButton: View {
             )
         }
     }
-    
+
     private func iconeTipo(_ tipo: TipoMedicamento) -> String {
         switch tipo {
         case .capsula:
@@ -279,7 +270,7 @@ struct HorarioEditItem: View {
     let onRemove: () -> Void
     @State private var showingDatePicker = false
     @State private var selectedTime = Date()
-    
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -291,14 +282,14 @@ struct HorarioEditItem: View {
                         .font(.headline)
                         .foregroundColor(.white)
                 }
-                
+
                 Text(descricaoFrequencia(horario))
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
             }
-            
+
             Spacer()
-            
+
             Button(action: onRemove) {
                 Image(systemName: "trash.fill")
                     .foregroundColor(.red.opacity(0.8))
@@ -322,24 +313,21 @@ struct HorarioEditItem: View {
                 .datePickerStyle(WheelDatePickerStyle())
                 .labelsHidden()
                 .padding()
-                
+
                 Button("Confirmar") {
-                    // Aqui você precisa implementar uma maneira de atualizar o horário
-                    // Como o horário é um valor imutável em um array, precisaríamos 
-                    // modificar a estrutura ou usar outro método para atualizá-lo
                     showingDatePicker = false
                 }
                 .padding()
             }
         }
     }
-    
+
     private func formatarHorario(_ data: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: data)
     }
-    
+
     private func descricaoFrequencia(_ horario: Horario) -> String {
         switch horario.frequencia {
         case .diaria:
@@ -358,7 +346,7 @@ struct HorarioEditItem: View {
             return "Uso esporádico"
         }
     }
-    
+
     private func diaDaSemana(_ dia: Int) -> String {
         let dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
         guard dia >= 1, dia <= 7 else { return "" }

@@ -25,13 +25,11 @@ class NotificacaoService {
         }
     }
 
-    // Função para encontrar um medicamento pelo ID
     func encontrarMedicamento(id: UUID) async -> Medicamento? {
         let medicamentos = persistenciaService.carregarMedicamentos()
         return medicamentos.first(where: { $0.id == id })
     }
 
-    // Agendar uma notificação
     func agendarNotificacao(titulo: String, corpo: String, horario: Horario, medicamentoID: UUID) {
         let conteudo = UNMutableNotificationContent()
         conteudo.title = titulo
@@ -39,7 +37,6 @@ class NotificacaoService {
         conteudo.sound = .default
         conteudo.categoryIdentifier = "MEDICAMENTO"
 
-        // Adicionar os IDs nos userInfo
         conteudo.userInfo = [
             "medicamentoID": medicamentoID.uuidString,
             "notificationID": horario.notificacaoID,

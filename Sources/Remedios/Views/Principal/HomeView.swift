@@ -2,12 +2,16 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var medicamentoViewModel: MedicamentoViewModel
+    @StateObject private var notificacaoViewModel = NotificacaoViewModel(
+        notificacaoService: NotificacaoService(persistenciaService: PersistenciaService()),
+        persistenciaService: PersistenciaService()
+    )
     @State private var mostrarConfiguracaoMedicamento = false
     @State private var tabSelecionada = 0
+    @StateObject private var notificacaoManager = NotificacaoManager.shared
 
     var body: some View {
         ZStack {
-            // Background
             LinearGradient(
                 gradient: Gradient(colors: [Color.blue.opacity(0.8), Color.purple.opacity(0.8)]),
                 startPoint: .top,
@@ -15,7 +19,6 @@ struct HomeView: View {
             )
             .ignoresSafeArea()
 
-            // Conteúdo principal
             VStack(spacing: 0) {
                 HStack {
                     Text("Meus Medicamentos")
@@ -38,6 +41,7 @@ struct HomeView: View {
                 TabView(selection: $tabSelecionada) {
                     ListaMedicamentosView()
                         .tag(0)
+                        .environmentObject(notificacaoViewModel)
 
                     HistoricoView()
                         .tag(1)
@@ -45,7 +49,6 @@ struct HomeView: View {
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
 
-            // Barra inferior de navegação
             VStack {
                 Spacer()
 
@@ -80,19 +83,31 @@ struct HomeView: View {
                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
                 )
             }
-
-            // Nosso observer de notificações - sempre visível
-            NotificacaoObserver()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+        ) { _ in
+            Task {
+                notificacaoManager.verificarNotificacoesPendentes()
+            }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+        ) { _ in
+            Task {
+                notificacaoManager.verificarNotificacoesPendentes()
+            }
         }
         .sheet(isPresented: $mostrarConfiguracaoMedicamento) {
             ConfiguracaoMedicamentoView(viewModel: medicamentoViewModel)
         }
         .onAppear {
-            // Solicitar permissão para notificações no primeiro lançamento
             Task {
                 NotificacaoManager.shared.solicitarPermissao { granted in
                     print("Permissão para notificações: \(granted ? "concedida" : "negada")")
                 }
+
+                notificacaoViewModel.verificarNotificacoes()
             }
         }
     }

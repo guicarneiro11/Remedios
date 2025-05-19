@@ -8,9 +8,28 @@ class ApplicationDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         print("ApplicationDelegate: didFinishLaunchingWithOptions")
 
-        // O NotificacaoManager é um singleton e já configura o delegate de notificações
         _ = NotificacaoManager.shared
 
+        if let notificationOption = launchOptions?[.remoteNotification] as? [String: AnyObject] {
+            print("App aberto a partir de notificação: \(notificationOption)")
+        }
+
         return true
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        print("ApplicationDelegate: applicationWillEnterForeground")
+
+        Task { @MainActor in
+            NotificacaoManager.shared.verificarNotificacoesPendentes()
+        }
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        print("ApplicationDelegate: applicationDidBecomeActive")
+
+        Task { @MainActor in
+            NotificacaoManager.shared.verificarNotificacoesPendentes()
+        }
     }
 }

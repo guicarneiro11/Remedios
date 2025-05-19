@@ -18,9 +18,9 @@ enum TipoMedicamento: String, CaseIterable, Identifiable, Codable {
     case po = "Pó"
     case spray = "Spray"
     case supositorio = "Supositório"
-    
+
     var id: String { rawValue }
-    
+
     var categoria: CategoriaMedicamento {
         switch self {
         case .capsula, .comprimido, .liquido, .topico:
@@ -50,20 +50,20 @@ struct CicloMedicamento: Codable, Equatable {
 }
 
 struct Horario: Identifiable, Codable {
-    let id = UUID()
+    var id = UUID()
     var hora: Date
     var frequencia: FrequenciaMedicamento
     var diasSemana: [Int]?
     var intervaloDias: Int?
     var ciclosDias: CicloMedicamento?
-    
+
     var notificacaoID: String {
         return id.uuidString
     }
 }
 
 struct Medicamento: Identifiable, Codable {
-    let id = UUID()
+    var id = UUID()
     var nome: String
     var tipo: TipoMedicamento
     var horarios: [Horario]

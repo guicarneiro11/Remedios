@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConfirmacaoMedicamentoView: View {
-    @EnvironmentObject var notificacaoViewModel: NotificacaoViewModel
+    @StateObject private var manager = NotificacaoManager.shared
     @State private var animationAmount: Double = 1.0
 
     var body: some View {
@@ -18,7 +18,6 @@ struct ConfirmacaoMedicamentoView: View {
                 .onAppear {
                     animationAmount = 1.2
                     print("ConfirmacaoMedicamentoView apareceu")
-                    // Garantir que a tela não vai embora sozinha
                     UIApplication.shared.isIdleTimerDisabled = true
                 }
                 .onDisappear {
@@ -32,7 +31,7 @@ struct ConfirmacaoMedicamentoView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
 
-            if let medicamento = notificacaoViewModel.medicamentoAtual {
+            if let medicamento = manager.medicamentoAtual {
                 VStack(spacing: 12) {
                     Text(medicamento.nome)
                         .font(.title3)
@@ -61,7 +60,7 @@ struct ConfirmacaoMedicamentoView: View {
             VStack(spacing: 16) {
                 Button(action: {
                     print("Botão Confirmar pressionado")
-                    notificacaoViewModel.confirmarMedicamentoTomado()
+                    manager.confirmarMedicamentoTomado()
                 }) {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
@@ -79,13 +78,13 @@ struct ConfirmacaoMedicamentoView: View {
 
                 Button(action: {
                     print("Botão Adiar pressionado")
-                    notificacaoViewModel.adiarMedicamento()
+                    manager.adiarMedicamento()
                 }) {
                     HStack {
                         Image(systemName: "clock.fill")
                             .font(.headline)
 
-                        Text("Adiar 3 minutos")
+                        Text("Adiar 5 minutos")
                             .font(.headline)
                     }
                     .foregroundColor(.white)
@@ -101,7 +100,7 @@ struct ConfirmacaoMedicamentoView: View {
 
                 Button(action: {
                     print("Botão Ignorar pressionado")
-                    notificacaoViewModel.ignorarMedicamento()
+                    manager.ignorarMedicamento()
                 }) {
                     HStack {
                         Image(systemName: "xmark.circle.fill")
@@ -127,9 +126,5 @@ struct ConfirmacaoMedicamentoView: View {
         .padding(.top, 50)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            Color.black.opacity(0.9)
-                .edgesIgnoringSafeArea(.all)
-        )
     }
 }

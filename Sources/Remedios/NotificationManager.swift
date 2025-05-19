@@ -1,35 +1,28 @@
 import AudioToolbox
 import SwiftUI
+import UIKit
 import UserNotifications
 
-// Singleton para gerenciar notificações - marcado como MainActor para garantir segurança de concorrência
 @MainActor
-class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
-    // Singleton
+class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate, ObservableObject {
     static let shared = NotificacaoManager()
 
-    // Estado atual da notificação
     @Published var medicamentoAtual: Medicamento?
     @Published var horarioAtual: Horario?
     @Published var mostrarTelaConfirmacao = false
 
-    // Persistência
     let persistenciaService = PersistenciaService()
 
-    // Vibração
     private var timer: Timer?
     private var vibrationCount = 0
     private let maxVibrationCount = 30
 
     private override init() {
         super.init()
-
         print("NotificacaoManager: Inicializando...")
 
-        // Definir self como o delegate de notificações
         UNUserNotificationCenter.current().delegate = self
 
-        // Configurar ações de notificação
         configureNotificationActions()
 
         print("NotificacaoManager: Inicializado com sucesso!")
@@ -41,8 +34,7 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
             if let error = error {
                 print("Erro ao solicitar permissão: \(error.localizedDescription)")
             }
-
-            print("Permissão de notificação: \(granted ? "CONCEDIDA" : "NEGADA")")
+            print("Permissão para notificações: \(granted ? "CONCEDIDA" : "NEGADA")")
             completion(granted)
         }
     }
@@ -77,17 +69,126 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
         print("Categorias e ações de notificação configuradas")
     }
 
-    // Agendar uma notificação
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        print("EVENTO: Usuário tocou na notificação: \(response.notification.request.identifier)")
+
+        let medicamentoIDString =
+            response.notification.request.content.userInfo["medicamentoID"] as? String
+        let notificacaoIDString =
+            response.notification.request.content.userInfo["notificationID"] as? String
+        let actionID = response.actionIdentifier
+
+        completionHandler()
+
+        if let medicamentoIDString = medicamentoIDString,
+            let notificacaoIDString = notificacaoIDString,
+            let id = UUID(uuidString: medicamentoIDString)
+        {
+
+            Task { @MainActor in
+                print(
+                    "PROCESSANDO notificação: medicamento=\(medicamentoIDString), notificacao=\(notificacaoIDString)"
+                )
+
+                let medicamentos = self.persistenciaService.carregarMedicamentos()
+
+                guard let medicamento = medicamentos.first(where: { $0.id == id }),
+                    let horario = medicamento.horarios.first(where: {
+                        $0.notificacaoID == notificacaoIDString
+                    })
+                else {
+                    print("ERRO: Medicamento ou horário não encontrado")
+                    return
+                }
+
+                print("SUCESSO: Medicamento encontrado: \(medicamento.nome)")
+
+                self.medicamentoAtual = medicamento
+                self.horarioAtual = horario
+                self.mostrarTelaConfirmacao = true
+
+                self.iniciarVibracaoContinua()
+
+                switch actionID {
+                case "TOMAR_ACTION":
+                    self.confirmarMedicamentoTomado()
+                case "ADIAR_ACTION":
+                    self.adiarMedicamento()
+                case "IGNORAR_ACTION":
+                    self.ignorarMedicamento()
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) ->
+            Void
+    ) {
+        print("EVENTO: Notificação recebida em primeiro plano")
+
+        let medicamentoIDString = notification.request.content.userInfo["medicamentoID"] as? String
+        let notificacaoIDString = notification.request.content.userInfo["notificationID"] as? String
+
+        completionHandler([.banner, .sound, .badge])
+
+        if let medicamentoIDString = medicamentoIDString,
+            let notificacaoIDString = notificacaoIDString,
+            let id = UUID(uuidString: medicamentoIDString)
+        {
+
+            Task { @MainActor in
+                print(
+                    "PROCESSANDO notificação em primeiro plano: medicamento=\(medicamentoIDString), notificacao=\(notificacaoIDString)"
+                )
+
+                let medicamentos = self.persistenciaService.carregarMedicamentos()
+
+                guard let medicamento = medicamentos.first(where: { $0.id == id }),
+                    let horario = medicamento.horarios.first(where: {
+                        $0.notificacaoID == notificacaoIDString
+                    })
+                else {
+                    print("ERRO: Medicamento ou horário não encontrado")
+                    return
+                }
+
+                print("SUCESSO: Medicamento encontrado: \(medicamento.nome)")
+
+                self.medicamentoAtual = medicamento
+                self.horarioAtual = horario
+                self.mostrarTelaConfirmacao = true
+
+                self.iniciarVibracaoContinua()
+            }
+        }
+    }
+
     func agendarNotificacao(titulo: String, corpo: String, horario: Horario, medicamentoID: UUID) {
+        print("Agendando notificação para \(titulo)")
+
         let conteudo = UNMutableNotificationContent()
         conteudo.title = titulo
         conteudo.body = corpo
-        conteudo.sound = .default
+
+        conteudo.sound = UNNotificationSound.defaultCritical
+
         conteudo.categoryIdentifier = "MEDICAMENTO"
         conteudo.userInfo = [
             "medicamentoID": medicamentoID.uuidString,
             "notificationID": horario.notificacaoID,
         ]
+
+        conteudo.threadIdentifier = "medicacao-importante"
+        conteudo.relevanceScore = 1.0
 
         let trigger = criarTrigger(para: horario)
         let request = UNNotificationRequest(
@@ -98,11 +199,18 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
 
         UNUserNotificationCenter.current().add(request) { erro in
             if let erro = erro {
-                print("❌ Erro ao agendar notificação: \(erro.localizedDescription)")
+                print("ERRO ao agendar notificação: \(erro.localizedDescription)")
             } else {
-                print("✅ Notificação agendada com sucesso: \(horario.notificacaoID)")
+                print("Notificação agendada com sucesso: \(horario.notificacaoID)")
             }
         }
+    }
+
+    func cancelarNotificacao(identificador: String) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
+            identificador
+        ])
+        print("Notificação cancelada: \(identificador)")
     }
 
     private func criarTrigger(para horario: Horario) -> UNNotificationTrigger {
@@ -132,150 +240,13 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    func cancelarNotificacao(identificador: String) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
-            identificador
-        ])
-        print("Notificação cancelada: \(identificador)")
-    }
-
-    // MARK: - UNUserNotificationCenterDelegate
-
-    // Quando o usuário interage com uma notificação
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
-    ) {
-        print("Notificação tocada: \(response.notification.request.identifier)")
-
-        // Extrair os dados necessários
-        let userInfo = response.notification.request.content.userInfo
-        let actionIdentifier = response.actionIdentifier
-
-        if let medicamentoID = userInfo["medicamentoID"] as? String,
-            let notificacaoID = userInfo["notificationID"] as? String,
-            let id = UUID(uuidString: medicamentoID)
-        {
-
-            print(
-                "Processando notificação para medicamento \(medicamentoID), notificação \(notificacaoID)"
-            )
-
-            // Precisamos entrar no contexto MainActor para acessar o singleton
-            Task { @MainActor in
-                print("Iniciando processamento @MainActor")
-
-                // Carregar medicamentos
-                let medicamentos = self.persistenciaService.carregarMedicamentos()
-
-                // Encontrar medicamento e horário correspondentes
-                guard let medicamento = medicamentos.first(where: { $0.id == id }),
-                    let horario = medicamento.horarios.first(where: {
-                        $0.notificacaoID == notificacaoID
-                    })
-                else {
-                    print("❌ Medicamento ou horário não encontrado")
-                    return
-                }
-
-                print("✅ Medicamento encontrado: \(medicamento.nome)")
-
-                // Configurar o estado atual
-                self.medicamentoAtual = medicamento
-                self.horarioAtual = horario
-                self.mostrarTelaConfirmacao = true
-
-                // Iniciar vibração
-                print("Iniciando vibração...")
-                self.iniciarVibracaoContinua()
-
-                // Se uma ação específica foi selecionada, executá-la após um pequeno atraso
-                switch actionIdentifier {
-                case "TOMAR_ACTION":
-                    print("Ação TOMAR selecionada - aguardando para executar...")
-                    try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 segundos
-                    print("Executando ação TOMAR")
-                    self.confirmarMedicamentoTomado()
-
-                case "ADIAR_ACTION":
-                    print("Ação ADIAR selecionada - aguardando para executar...")
-                    try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 segundos
-                    print("Executando ação ADIAR")
-                    self.adiarMedicamento()
-
-                case "IGNORAR_ACTION":
-                    print("Ação IGNORAR selecionada - aguardando para executar...")
-                    try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 segundos
-                    print("Executando ação IGNORAR")
-                    self.ignorarMedicamento()
-
-                default:
-                    print("Nenhuma ação específica selecionada - apenas mostrando a tela")
-                }
-            }
-        }
-
-        completionHandler()
-    }
-
-    // Quando uma notificação chega com o app em primeiro plano
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) ->
-            Void
-    ) {
-        // Mostrar a notificação mesmo quando o app está em primeiro plano
-        completionHandler([.banner, .sound, .badge])
-
-        // Extrair os dados necessários
-        let userInfo = notification.request.content.userInfo
-
-        if let medicamentoID = userInfo["medicamentoID"] as? String,
-            let notificacaoID = userInfo["notificationID"] as? String,
-            let id = UUID(uuidString: medicamentoID)
-        {
-
-            print("Notificação em primeiro plano: \(medicamentoID), \(notificacaoID)")
-
-            // Acessar o singleton em contexto MainActor
-            Task { @MainActor in
-                // Carregar medicamentos
-                let medicamentos = self.persistenciaService.carregarMedicamentos()
-
-                // Encontrar medicamento e horário correspondentes
-                guard let medicamento = medicamentos.first(where: { $0.id == id }),
-                    let horario = medicamento.horarios.first(where: {
-                        $0.notificacaoID == notificacaoID
-                    })
-                else {
-                    print("❌ Medicamento ou horário não encontrado (willPresent)")
-                    return
-                }
-
-                print("✅ Medicamento encontrado (willPresent): \(medicamento.nome)")
-
-                // Configurar o estado atual
-                self.medicamentoAtual = medicamento
-                self.horarioAtual = horario
-                self.mostrarTelaConfirmacao = true
-
-                // Iniciar vibração
-                print("Iniciando vibração (willPresent)...")
-                self.iniciarVibracaoContinua()
-            }
-        }
-    }
-
-    // MARK: - Ações de medicamentos
-
     func confirmarMedicamentoTomado() {
-        print("Confirmando medicamento tomado")
+        print("AÇÃO: Confirmar medicamento tomado")
+
         guard let medicamento = medicamentoAtual,
             let horario = horarioAtual
         else {
-            print("❌ Erro: medicamento ou horário não definidos")
+            print("ERRO: Medicamento ou horário não definidos")
             return
         }
 
@@ -289,18 +260,19 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
         )
 
         persistenciaService.adicionarRegistro(registro)
-        print("✅ Registro adicionado: \(medicamento.nome) - Tomado")
+        print("Registro adicionado: \(medicamento.nome) - Tomado")
 
         pararVibracaoContinua()
         resetarEstado()
     }
 
     func adiarMedicamento() {
-        print("Adiando medicamento")
+        print("AÇÃO: Adiar medicamento")
+
         guard let medicamento = medicamentoAtual,
             let horario = horarioAtual
         else {
-            print("❌ Erro: medicamento ou horário não definidos")
+            print("ERRO: Medicamento ou horário não definidos")
             return
         }
 
@@ -314,13 +286,12 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
         )
 
         persistenciaService.adicionarRegistro(registro)
-        print("✅ Registro adicionado: \(medicamento.nome) - Adiado")
+        print("Registro adicionado: \(medicamento.nome) - Adiado")
 
         pararVibracaoContinua()
         resetarEstado()
 
-        // Agendar nova notificação para 3 minutos depois
-        let tempoAdiamento = 3  // minutos
+        let tempoAdiamento = 5
         let dataLembrete = Date().adicionarMinutos(tempoAdiamento)
 
         let conteudo = UNMutableNotificationContent()
@@ -346,19 +317,20 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
 
         UNUserNotificationCenter.current().add(request) { erro in
             if let erro = erro {
-                print("❌ Erro ao agendar lembrete: \(erro.localizedDescription)")
+                print("ERRO ao agendar lembrete: \(erro.localizedDescription)")
             } else {
-                print("✅ Lembrete agendado para daqui a \(tempoAdiamento) minutos")
+                print("Lembrete agendado para daqui a \(tempoAdiamento) minutos")
             }
         }
     }
 
     func ignorarMedicamento() {
-        print("Ignorando medicamento")
+        print("AÇÃO: Ignorar medicamento")
+
         guard let medicamento = medicamentoAtual,
             let horario = horarioAtual
         else {
-            print("❌ Erro: medicamento ou horário não definidos")
+            print("ERRO: Medicamento ou horário não definidos")
             return
         }
 
@@ -372,7 +344,7 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
         )
 
         persistenciaService.adicionarRegistro(registro)
-        print("✅ Registro adicionado: \(medicamento.nome) - Ignorado")
+        print("Registro adicionado: \(medicamento.nome) - Ignorado")
 
         pararVibracaoContinua()
         resetarEstado()
@@ -385,44 +357,46 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
         mostrarTelaConfirmacao = false
     }
 
-    // MARK: - Vibração
-
     func iniciarVibracaoContinua() {
-        // Parar qualquer timer existente
         pararVibracaoContinua()
 
-        // Resetar contador
         vibrationCount = 0
 
         print("⚡ INICIANDO VIBRAÇÃO CONTÍNUA")
 
-        // Vibrar imediatamente
         AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
 
-        // Configurar timer para vibrar a cada 2 segundos - usando um timer que roda na thread principal
-        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            // Usamos DispatchQueue.main para garantir que estamos na thread principal
-            DispatchQueue.main.async {
-                guard let self = self else { return }
+        DispatchQueue.main.async {
+            self.timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) {
+                [weak self] _ in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
 
-                // Agora estamos no contexto do MainActor, então podemos acessar as propriedades com segurança
-                if self.mostrarTelaConfirmacao {
-                    AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
-                    self.vibrationCount += 1
-                    print("Vibração \(self.vibrationCount)")
+                    if self.mostrarTelaConfirmacao {
+                        let feedbackGenerator = UIImpactFeedbackGenerator(style: .heavy)
+                        feedbackGenerator.prepare()
+                        feedbackGenerator.impactOccurred()
 
-                    if self.vibrationCount >= self.maxVibrationCount {
-                        print("Limite de vibrações atingido")
+                        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+
+                        self.vibrationCount += 1
+                        print("Vibração \(self.vibrationCount) de \(self.maxVibrationCount)")
+
+                        if self.vibrationCount >= self.maxVibrationCount {
+                            print("Limite de vibrações atingido")
+                            self.pararVibracaoContinua()
+                        }
+                    } else {
+                        print("Tela não está mais visível - parando vibração")
                         self.pararVibracaoContinua()
                     }
-                } else {
-                    print("Tela não está mais visível - parando vibração")
-                    self.pararVibracaoContinua()
                 }
             }
-        }
 
-        RunLoop.main.add(timer!, forMode: .common)
+            if let timer = self.timer {
+                RunLoop.main.add(timer, forMode: .common)
+            }
+        }
     }
 
     func pararVibracaoContinua() {
@@ -430,6 +404,102 @@ class NotificacaoManager: NSObject, UNUserNotificationCenterDelegate {
             print("Parando vibração contínua")
             timer?.invalidate()
             timer = nil
+        }
+    }
+
+    func verificarNotificacoesPendentes() {
+        print("Verificando notificações pendentes e entregues...")
+
+        UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] notificacoes in
+            Task { @MainActor in
+                guard let self = self else { return }
+
+                if !notificacoes.isEmpty {
+                    print("Notificações entregues: \(notificacoes.count)")
+                    self.processarNotificacaoMaisRecente(notificacoes)
+                } else {
+                    print("Nenhuma notificação entregue")
+
+                    self.verificarNotificacoesPendentesAtivas()
+                }
+            }
+        }
+    }
+
+    private func verificarNotificacoesPendentesAtivas() {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { [weak self] pendentes in
+            Task { @MainActor in
+                guard let self = self else { return }
+
+                let agora = Date()
+                print("Notificações pendentes: \(pendentes.count)")
+
+                let notificacoesFiltradas = pendentes.compactMap {
+                    requisicao -> UNNotificationRequest? in
+                    if let trigger = requisicao.trigger as? UNCalendarNotificationTrigger,
+                        let dateMatching = trigger.dateComponents.date,
+                        dateMatching <= agora
+                    {
+                        return requisicao
+                    }
+                    return nil
+                }
+
+                if !notificacoesFiltradas.isEmpty {
+                    print("Notificações pendentes ativas: \(notificacoesFiltradas.count)")
+
+                    if let notificacao = notificacoesFiltradas.last,
+                        let medicamentoID = notificacao.content.userInfo["medicamentoID"]
+                            as? String,
+                        let notificacaoID = notificacao.content.userInfo["notificationID"]
+                            as? String,
+                        let id = UUID(uuidString: medicamentoID)
+                    {
+
+                        self.processarNotificacaoAtiva(
+                            medicamentoID: medicamentoID, notificacaoID: notificacaoID, id: id)
+                    }
+                } else {
+                    print("Nenhuma notificação pendente ativa")
+                }
+            }
+        }
+    }
+
+    private func processarNotificacaoMaisRecente(_ notificacoes: [UNNotification]) {
+        if let notificacao = notificacoes.last,
+            let medicamentoID = notificacao.request.content.userInfo["medicamentoID"] as? String,
+            let notificacaoID = notificacao.request.content.userInfo["notificationID"] as? String,
+            let id = UUID(uuidString: medicamentoID)
+        {
+
+            print("Processando notificação entregue: \(medicamentoID)")
+
+            processarNotificacaoAtiva(
+                medicamentoID: medicamentoID, notificacaoID: notificacaoID, id: id)
+
+            UNUserNotificationCenter.current().removeDeliveredNotifications(
+                withIdentifiers: [notificacao.request.identifier])
+        }
+    }
+
+    private func processarNotificacaoAtiva(medicamentoID: String, notificacaoID: String, id: UUID) {
+        let medicamentos = self.persistenciaService.carregarMedicamentos()
+
+        if let medicamento = medicamentos.first(where: { $0.id == id }),
+            let horario = medicamento.horarios.first(where: { $0.notificacaoID == notificacaoID })
+        {
+
+            print("SUCESSO: Medicamento encontrado: \(medicamento.nome)")
+
+            self.medicamentoAtual = medicamento
+            self.horarioAtual = horario
+            self.mostrarTelaConfirmacao = true
+
+            print("Iniciando vibração para notificação...")
+            self.iniciarVibracaoContinua()
+        } else {
+            print("ERRO: Medicamento ou horário não encontrado")
         }
     }
 }
