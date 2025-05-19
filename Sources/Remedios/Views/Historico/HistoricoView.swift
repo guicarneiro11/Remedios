@@ -3,11 +3,12 @@ import SwiftUI
 struct HistoricoView: View {
     @EnvironmentObject var medicamentoViewModel: MedicamentoViewModel
     @StateObject private var viewModel: HistoricoViewModel
-    
+
     init() {
-        _viewModel = StateObject(wrappedValue: HistoricoViewModel(persistenciaService: PersistenciaService()))
+        _viewModel = StateObject(
+            wrappedValue: HistoricoViewModel(persistenciaService: PersistenciaService()))
     }
-    
+
     var body: some View {
         VStack(spacing: 16) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -20,21 +21,26 @@ struct HistoricoView: View {
                                 .font(.caption)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(viewModel.filtroPeriodo == periodo ? Color.white : Color.white.opacity(0.1))
-                                .foregroundColor(viewModel.filtroPeriodo == periodo ? .black : .white)
+                                .background(
+                                    viewModel.filtroPeriodo == periodo
+                                        ? Color.white : Color.white.opacity(0.1)
+                                )
+                                .foregroundColor(
+                                    viewModel.filtroPeriodo == periodo ? .black : .white
+                                )
                                 .cornerRadius(20)
                         }
                     }
-                    
+
                     Divider()
                         .frame(height: 24)
                         .background(Color.white.opacity(0.3))
-                    
+
                     Menu {
                         Button("Todos os medicamentos") {
                             viewModel.filtroMedicamento = nil
                         }
-                        
+
                         ForEach(medicamentoViewModel.medicamentos) { medicamento in
                             Button(medicamento.nome) {
                                 viewModel.filtroMedicamento = medicamento.id
@@ -44,7 +50,7 @@ struct HistoricoView: View {
                         HStack {
                             Text(nomeMedicamentoFiltrado())
                                 .font(.caption)
-                            
+
                             Image(systemName: "chevron.down")
                                 .font(.caption)
                         }
@@ -63,30 +69,30 @@ struct HistoricoView: View {
                     Text("Taxa de adesão")
                         .font(.headline)
                         .foregroundColor(.white)
-                    
+
                     Spacer()
-                    
+
                     Text(String(format: "%.1f%%", viewModel.dadosEstatisticas.taxaAdesao))
                         .font(.headline)
                         .foregroundColor(.white)
                 }
-                
+
                 ProgressBar(value: viewModel.dadosEstatisticas.taxaAdesao / 100)
                     .frame(height: 8)
-                
+
                 HStack(spacing: 16) {
                     EstatisticaItem(
                         valor: viewModel.dadosEstatisticas.medicamentosTomados,
                         label: "Tomados",
                         cor: .green
                     )
-                    
+
                     EstatisticaItem(
                         valor: viewModel.dadosEstatisticas.medicamentosAdiados,
                         label: "Adiados",
                         cor: .orange
                     )
-                    
+
                     EstatisticaItem(
                         valor: viewModel.dadosEstatisticas.medicamentosIgnorados,
                         label: "Ignorados",
@@ -102,58 +108,72 @@ struct HistoricoView: View {
 
             if viewModel.registros.isEmpty {
                 Spacer()
-                
+
                 VStack(spacing: 12) {
                     Image(systemName: "calendar.badge.clock")
                         .font(.system(size: 60))
                         .foregroundColor(.white.opacity(0.7))
-                    
+
                     Text("Nenhum registro encontrado")
                         .font(.title3)
                         .foregroundColor(.white)
-                    
+
                     Text("Os registros aparecerão aqui quando você tomar seus medicamentos")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
-                
+
                 Spacer()
             } else {
-                List {
-                    ForEach(agruparRegistrosPorData().keys.sorted(by: >), id: \.self) { data in
-                        Section(header: Text(formatarDataSecao(data)).foregroundColor(.white)) {
-                            ForEach(agruparRegistrosPorData()[data] ?? []) { registro in
-                                RegistroMedicacaoView(registro: registro, viewModel: viewModel)
-                                    .listRowBackground(Color.clear)
+                ZStack {
+                    List {
+                        ForEach(agruparRegistrosPorData().keys.sorted(by: >), id: \.self) { data in
+                            Section(header: Text(formatarDataSecao(data)).foregroundColor(.white)) {
+                                ForEach(agruparRegistrosPorData()[data] ?? []) { registro in
+                                    RegistroMedicacaoView(registro: registro, viewModel: viewModel)
+                                        .listRowBackground(Color.clear)
+                                }
                             }
                         }
                     }
+                    .listStyle(PlainListStyle())
+                    .background(Color.clear)
+
+                    VStack {
+                        Spacer()
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(height: 60)
+                            .allowsHitTesting(false)
+                    }
+                    .allowsHitTesting(false)
                 }
-                .listStyle(PlainListStyle())
-                .background(Color.clear)
             }
         }
         .onAppear {
             viewModel.carregarRegistros()
         }
+        .padding(.bottom, 60)
     }
-    
+
     private func nomeMedicamentoFiltrado() -> String {
         if let id = viewModel.filtroMedicamento,
-           let medicamento = medicamentoViewModel.medicamentos.first(where: { $0.id == id }) {
+            let medicamento = medicamentoViewModel.medicamentos.first(where: { $0.id == id })
+        {
             return medicamento.nome
         }
         return "Todos"
     }
-    
+
     private func agruparRegistrosPorData() -> [Date: [RegistroMedicacao]] {
         let calendar = Calendar.current
         var registrosPorData: [Date: [RegistroMedicacao]] = [:]
-        
+
         for registro in viewModel.registros {
-            let componentes = calendar.dateComponents([.year, .month, .day], from: registro.horarioProgramado)
+            let componentes = calendar.dateComponents(
+                [.year, .month, .day], from: registro.horarioProgramado)
             if let data = calendar.date(from: componentes) {
                 if registrosPorData[data] == nil {
                     registrosPorData[data] = []
@@ -161,13 +181,13 @@ struct HistoricoView: View {
                 registrosPorData[data]?.append(registro)
             }
         }
-        
+
         return registrosPorData
     }
-    
+
     private func formatarDataSecao(_ data: Date) -> String {
         let calendar = Calendar.current
-        
+
         if calendar.isDateInToday(data) {
             return "Hoje"
         } else if calendar.isDateInYesterday(data) {
@@ -182,7 +202,7 @@ struct HistoricoView: View {
 
 struct ProgressBar: View {
     var value: Double
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
@@ -190,15 +210,18 @@ struct ProgressBar: View {
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .opacity(0.3)
                     .foregroundColor(.gray)
-                
+
                 Rectangle()
-                    .frame(width: min(CGFloat(self.value) * geometry.size.width, geometry.size.width), height: geometry.size.height)
+                    .frame(
+                        width: min(CGFloat(self.value) * geometry.size.width, geometry.size.width),
+                        height: geometry.size.height
+                    )
                     .foregroundColor(corBarraProgresso(value: self.value))
             }
             .cornerRadius(45)
         }
     }
-    
+
     private func corBarraProgresso(value: Double) -> Color {
         if value < 0.4 {
             return .red
@@ -214,17 +237,17 @@ struct EstatisticaItem: View {
     var valor: Int
     var label: String
     var cor: Color
-    
+
     var body: some View {
         VStack(spacing: 4) {
             Text("\(valor)")
                 .font(.headline)
                 .foregroundColor(.white)
-            
+
             Text(label)
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.7))
-            
+
             Circle()
                 .frame(width: 8, height: 8)
                 .foregroundColor(cor)
@@ -236,7 +259,7 @@ struct EstatisticaItem: View {
 struct RegistroMedicacaoView: View {
     let registro: RegistroMedicacao
     @ObservedObject var viewModel: HistoricoViewModel
-    
+
     var body: some View {
         HStack {
             Circle()
@@ -247,12 +270,12 @@ struct RegistroMedicacaoView: View {
                 Text(registro.nomeMedicamento)
                     .font(.headline)
                     .foregroundColor(.white)
-                
+
                 HStack {
                     Text("Horário: \(registro.horarioProgramado.formatarHora())")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
-                    
+
                     if let horarioTomado = registro.horarioTomado {
                         Text("Tomado: \(horarioTomado.formatarHora())")
                             .font(.caption)
@@ -260,7 +283,7 @@ struct RegistroMedicacaoView: View {
                     }
                 }
             }
-            
+
             Spacer()
 
             Text(textoStatus())
@@ -273,15 +296,15 @@ struct RegistroMedicacaoView: View {
         }
         .padding(.vertical, 4)
     }
-    
+
     private func textoStatus() -> String {
         switch registro.status {
         case .tomado:
-            return "Tomado"
+            return "Tomou"
         case .ignorado:
-            return "Ignorado"
+            return "Ignorou"
         case .pendente:
-            return registro.adiado ? "Adiado" : "Pendente"
+            return registro.adiado ? "Adiou" : "Pendente"
         }
     }
 }

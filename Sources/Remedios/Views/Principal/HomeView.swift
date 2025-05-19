@@ -76,7 +76,12 @@ struct HomeView: View {
                     Spacer()
                 }
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.1))
+                .background(
+                    Color.black.opacity(0.2)
+                        .background(
+                            Material.ultraThinMaterial
+                        )
+                )
                 .cornerRadius(20, corners: [.topLeft, .topRight])
                 .overlay(
                     RoundedCornerShape(radius: 20, corners: [.topLeft, .topRight])

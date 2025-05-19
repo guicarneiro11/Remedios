@@ -10,8 +10,8 @@ struct RegistroMedicacao: Identifiable, Codable {
     var adiado: Bool
 
     enum StatusMedicacao: String, Codable {
-        case tomado = "Tomado"
+        case tomado = "Tomou"
         case pendente = "Pendente"
-        case ignorado = "Ignorado"
+        case ignorado = "Ignorou"
     }
 }
