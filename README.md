@@ -13,12 +13,13 @@ The app was developed using xtool, allowing for iOS development directly from Ar
 
 ## 🖼️ Screenshots
 
-<!-- Insert screenshots here when available -->
 <div align="center">
-<img src="https://placeholder.com/screenshot1.png" alt="Home Screen" width="200"/>
-<img src="https://placeholder.com/screenshot2.png" alt="Medication Details" width="200"/>
-<img src="https://placeholder.com/screenshot3.png" alt="Notification Screen" width="200"/>
-<img src="https://placeholder.com/screenshot4.png" alt="History Screen" width="200"/>
+<img src="https://i.imgur.com/jq0dldI.png" alt="Home" width="200"/>
+<img src="https://i.imgur.com/4QD1TqS.png" alt="History" width="200"/>
+<img src="https://i.imgur.com/MZqokYR.png" alt="Name" width="200"/>
+<img src="https://i.imgur.com/aZoCrsA.png" alt="Type" width="200"/>
+<img src="https://i.imgur.com/Yv2EPiY.png" alt="Time" width="200"/>
+<img src="https://i.imgur.com/btNPP5Q.png" alt="Revision" width="200"/>
 </div>
 
 ## ✨ Key Features
