@@ -9,7 +9,7 @@
 
 **Remedios** is an iOS application developed to solve a common problem: forgetting to take medications despite receiving notifications. Unlike standard reminder apps, Remedios uses an persistent notification system that continues to alert users until they take action, ensuring better medication adherence and ultimately improving health outcomes.
 
-The app was developed using xtool, allowing for iOS development directly from Arch Linux without requiring a macOS environment. This project showcases how cross-platform development tools can break traditional platform barriers while delivering a high-quality native experience.
+The app was developed using xtool, allowing for iOS development directly from Arch Linux without requiring a macOS environment. This project showcases how cross-platform development tools can break traditional platform barriers while delivering a native experience.
 
 ## Screenshots
 
