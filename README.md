@@ -5,13 +5,13 @@
 *A persistent medication reminder application designed to ensure users never miss a dose*
 </div>
 
-## 📌 Overview
+## Overview
 
 **Remedios** is an iOS application developed to solve a common problem: forgetting to take medications despite receiving notifications. Unlike standard reminder apps, Remedios uses an persistent notification system that continues to alert users until they take action, ensuring better medication adherence and ultimately improving health outcomes.
 
 The app was developed using xtool, allowing for iOS development directly from Arch Linux without requiring a macOS environment. This project showcases how cross-platform development tools can break traditional platform barriers while delivering a high-quality native experience.
 
-## 🖼️ Screenshots
+## Screenshots
 
 <div align="center">
 <img src="https://i.imgur.com/jq0dldI.png" alt="Home" width="200"/>
@@ -22,9 +22,9 @@ The app was developed using xtool, allowing for iOS development directly from Ar
 <img src="https://i.imgur.com/btNPP5Q.png" alt="Revision" width="200"/>
 </div>
 
-## ✨ Key Features
+## Key Features
 
-### 💊 Comprehensive Medication Management
+### Comprehensive Medication Management
 - Add medications with detailed information
 - Support for multiple medication types (pills, capsules, liquid, topical, etc.)
 - Flexible scheduling options:
@@ -34,7 +34,7 @@ The app was developed using xtool, allowing for iOS development directly from Ar
   * Cycle-based treatments (active/rest periods)
   * Sporadic use medications
 
-### 🔔 Persistent Notification System
+### Persistent Notification System
 - Progressive notification intensity
 - Continuous vibration (30 vibrations at 2-second intervals)
 - Three response options:
@@ -42,18 +42,18 @@ The app was developed using xtool, allowing for iOS development directly from Ar
   * "Postpone" - Reschedules a reminder in 5 minutes with increased persistence
   * "Skip" - Records medication as skipped for tracking purposes
 
-### 📊 Adherence Tracking
+### Adherence Tracking
 - Detailed history of all medication events
 - Statistical analysis of adherence rates
 - Visual representation of taken, postponed, and skipped medications
 - Filterable history by time period and medication
 
-### 👤 User-Friendly Interface
+### User-Friendly Interface
 - Clean, gradient-based UI design
 - Quick access to medication details
 - Intuitive medication addition workflow
 
-## 🔧 Technologies
+## Technologies
 
 The application was developed using modern iOS development practices focused on reliability and user experience:
 
@@ -66,7 +66,7 @@ The application was developed using modern iOS development practices focused on 
 - **Swift Concurrency**: Task-based asynchronous programming
 - **MainActor**: Thread-safe state management
 
-## 🛠️ Architecture
+## Architecture
 
 The project follows the MVVM (Model-View-ViewModel) architecture with clear separation of responsibilities:
 
@@ -93,14 +93,14 @@ The project follows the MVVM (Model-View-ViewModel) architecture with clear sepa
         └── NotificationManager.swift  # Core notification engine
 ```
 
-## 💡 Unique Technical Aspects
+## Unique Technical Aspects
 
 - **Persistent Notification System**: A custom implementation that provides continuous feedback until user action
 - **Cross-Platform Development**: iOS app developed entirely on Linux using xtool
 - **Thread-Safe Notification Handling**: Use of Swift Concurrency and MainActor for reliable notification processing
 - **UserDefaults-Based Persistence**: Lightweight data storage for medication records and history
 
-## 🚀 How to Run the Project
+## How to Run the Project
 
 ### Prerequisites
 - [xtool](https://github.com/xtool-org/xtool) installed on your system (Linux, macOS, or Windows)
@@ -123,7 +123,7 @@ The project follows the MVVM (Model-View-ViewModel) architecture with clear sepa
    xtool dev
    ```
 
-## 📞 Contact
+## Contact
 
 For questions, suggestions, or collaborations, contact:
 
